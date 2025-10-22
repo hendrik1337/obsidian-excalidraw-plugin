@@ -202,6 +202,9 @@ export interface ExcalidrawSettings {
   pdfDirection: "down" | "right";
   pdfImportScale: number;
   gridSettings: GridSettings;
+  squaredPaperEnabled: boolean;
+  squaredPaperColor: string;
+  squaredPaperSize: number;
   laserSettings: {
     DECAY_TIME: number,
     DECAY_LENGTH: number,
@@ -404,6 +407,9 @@ export const DEFAULT_SETTINGS: ExcalidrawSettings = {
     OPACITY: 50,
     GRID_DIRECTION: {horizontal: true, vertical: true},
   },
+  squaredPaperEnabled: false,
+  squaredPaperColor: "#C0C0C0",
+  squaredPaperSize: 20,
   laserSettings: {
     DECAY_LENGTH: 50,
     DECAY_TIME: 1000,
@@ -554,6 +560,11 @@ export class ExcalidrawSettingTab extends PluginSettingTab {
   applySettingsUpdate(requestReloadDrawings: boolean = false) {
     if (requestReloadDrawings) {
       this.requestReloadDrawings = true;
+    }
+    if (requestReloadDrawings) { // Only update if a reload is requested, as squared paper changes require a reload
+      getExcalidrawViews(this.app).forEach(excalidrawView =>
+        excalidrawView.updateSquaredPaperStyles()
+      )
     }
   }
 
@@ -1690,6 +1701,53 @@ export class ExcalidrawSettingTab extends PluginSettingTab {
         },
         minWidth: "3em",
       })
+
+      // ------------------------------------------------
+      // Squared Paper
+      // ------------------------------------------------
+      detailsEl = displayDetailsEl.createEl("details");
+      detailsEl.createEl("summary", {
+        text: t("SQUARED_PAPER_HEAD"),
+        cls: "excalidraw-setting-h3",
+      });
+
+      new Setting(detailsEl)
+        .setName(t("SQUARED_PAPER_ENABLE_NAME"))
+        .setDesc(fragWithHTML(t("SQUARED_PAPER_ENABLE_DESC")))
+        .addToggle((toggle) =>
+          toggle
+            .setValue(this.plugin.settings.squaredPaperEnabled)
+            .onChange(async (value) => {
+              this.plugin.settings.squaredPaperEnabled = value;
+              this.applySettingsUpdate(true); // Request reload to apply changes
+            }),
+        );
+
+      new Setting(detailsEl)
+        .setName(t("SQUARED_PAPER_COLOR_NAME"))
+        .setDesc(fragWithHTML(t("SQUARED_PAPER_COLOR_DESC")))
+        .addColorPicker((colorPicker) =>
+          colorPicker
+            .setValue(this.plugin.settings.squaredPaperColor)
+            .onChange(async (value) => {
+              this.plugin.settings.squaredPaperColor = value;
+              this.applySettingsUpdate(true); // Request reload to apply changes
+            }),
+        );
+
+      createSliderWithText(detailsEl, {
+        name: t("SQUARED_PAPER_SIZE_NAME"),
+        desc: t("SQUARED_PAPER_SIZE_DESC"),
+        value: this.plugin.settings.squaredPaperSize,
+        min: 5,
+        max: 100,
+        step: 5,
+        onChange: (value) => {
+          this.plugin.settings.squaredPaperSize = value;
+          this.applySettingsUpdate(true); // Request reload to apply changes
+        },
+        minWidth: "3em",
+      });
 
     // ------------------------------------------------
     // Laser Pointer

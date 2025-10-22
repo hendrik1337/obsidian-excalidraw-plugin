@@ -2843,6 +2843,9 @@ export default class ExcalidrawView extends TextFileView implements HoverParent{
             pinnedScripts: this.plugin.settings.pinnedScripts,
             customPens: this.plugin.settings.customPens.slice(0,this.plugin.settings.numberOfCustomPens),
             gridDirection: this.plugin.settings.gridSettings.GRID_DIRECTION ?? {horizontal: true, vertical: true},
+            squaredPaperEnabled: this.plugin.settings.squaredPaperEnabled,
+            squaredPaperColor: this.plugin.settings.squaredPaperColor,
+            squaredPaperSize: this.plugin.settings.squaredPaperSize,
           },
           captureUpdate: CaptureUpdateAction.NEVER,
         },
@@ -2877,6 +2880,9 @@ export default class ExcalidrawView extends TextFileView implements HoverParent{
           pinnedScripts: this.plugin.settings.pinnedScripts,
           customPens: this.plugin.settings.customPens.slice(0,this.plugin.settings.numberOfCustomPens),
           gridDirection: this.plugin.settings.gridSettings.GRID_DIRECTION,
+          squaredPaperEnabled: this.plugin.settings.squaredPaperEnabled,
+          squaredPaperColor: this.plugin.settings.squaredPaperColor,
+          squaredPaperSize: this.plugin.settings.squaredPaperSize,
         },
         files: excalidrawData.files,
         libraryItems: await this.getLibrary(),
@@ -2909,6 +2915,7 @@ export default class ExcalidrawView extends TextFileView implements HoverParent{
     this.loadSceneFiles();
     this.updateContainerSize(null, true, justloaded);
     this.initializeToolsIconPanelAfterLoading();
+    this.updateSquaredPaperStyles();
   }
 
   public setDirty(location?:number) {
@@ -4128,12 +4135,17 @@ export default class ExcalidrawView extends TextFileView implements HoverParent{
       st.editingTextElement === null &&
       //Removed because of
       //https://github.com/zsviczian/obsidian-excalidraw-plugin/issues/565
-      /*st.resizingElement === null && 
+      /*st.resizingElement === null &&
       st.newElement === null &&
       st.editingGroupId === null &&*/
       (st.selectedLinearElement === null || !st.selectedLinearElement.isEditing)
     ) {
       this.checkSceneVersion(et);
+    }
+
+    // Update squared paper canvas if enabled
+    if (this.plugin.settings.squaredPaperEnabled) {
+      this.updateSquaredPaperCanvas();
     }
   }
 
@@ -5558,6 +5570,29 @@ export default class ExcalidrawView extends TextFileView implements HoverParent{
       this.obsidianMenu = new ObsidianMenu(this.plugin, toolsPanelRef, this);
       this.embeddableMenu = new EmbeddableMenu(this, embeddableMenuRef);
       this.excalidrawWrapperRef = excalidrawWrapperRef;
+
+      const updateSquaredPaperStyles = () => {
+        if (excalidrawWrapperRef.current) {
+          const wrapper = excalidrawWrapperRef.current;
+          if (this.plugin.settings.squaredPaperEnabled) {
+            wrapper.classList.add('excalidraw-squared-paper');
+            wrapper.style.setProperty('--squared-paper-color', this.plugin.settings.squaredPaperColor);
+            wrapper.style.setProperty('--squared-paper-size', `${this.plugin.settings.squaredPaperSize}px`);
+            // Create canvas for squared paper if it doesn't exist
+            this.createSquaredPaperCanvas();
+          } else {
+            wrapper.classList.remove('excalidraw-squared-paper');
+            wrapper.style.removeProperty('--squared-paper-color');
+            wrapper.style.removeProperty('--squared-paper-size');
+            // Remove canvas if it exists
+            this.removeSquaredPaperCanvas();
+          }
+        }
+      };
+
+      // Initial update
+      updateSquaredPaperStyles();
+
       return () => {
         this.obsidianMenu.destroy();
         this.obsidianMenu = null;
@@ -5566,6 +5601,14 @@ export default class ExcalidrawView extends TextFileView implements HoverParent{
         this.toolsPanelRef.current = null;
         this.embeddableMenuRef.current = null;
         this.excalidrawWrapperRef.current = null;
+        // Clean up styles and canvas on unmount
+        this.removeSquaredPaperCanvas();
+        if (excalidrawWrapperRef.current) {
+          const wrapper = excalidrawWrapperRef.current;
+          wrapper.classList.remove('excalidraw-squared-paper');
+          wrapper.style.removeProperty('--squared-paper-color');
+          wrapper.style.removeProperty('--squared-paper-size');
+        }
       }
     }, []);
 
@@ -5823,6 +5866,119 @@ export default class ExcalidrawView extends TextFileView implements HoverParent{
       appState: { allowWheelZoom: this.plugin.settings.allowWheelZoom },
       captureUpdate: CaptureUpdateAction.NEVER,
     });
+  }
+
+  private squaredPaperCanvas: HTMLCanvasElement | null = null;
+
+  public updateSquaredPaperStyles() {
+    (process.env.NODE_ENV === 'development') && DEBUGGING && debug(this.updateSquaredPaperStyles, "ExcalidrawView.updateSquaredPaperStyles");
+    if (this.excalidrawWrapperRef?.current) {
+      const wrapper = this.excalidrawWrapperRef.current;
+      if (this.plugin.settings.squaredPaperEnabled) {
+        wrapper.classList.add('excalidraw-squared-paper');
+        wrapper.style.setProperty('--squared-paper-color', this.plugin.settings.squaredPaperColor);
+        wrapper.style.setProperty('--squared-paper-size', `${this.plugin.settings.squaredPaperSize}px`);
+        this.createSquaredPaperCanvas();
+      } else {
+        wrapper.classList.remove('excalidraw-squared-paper');
+        wrapper.style.removeProperty('--squared-paper-color');
+        wrapper.style.removeProperty('--squared-paper-size');
+        this.removeSquaredPaperCanvas();
+      }
+    }
+  }
+
+  private createSquaredPaperCanvas() {
+    if (!this.excalidrawWrapperRef?.current || this.squaredPaperCanvas) {
+      return; // Canvas already exists
+    }
+
+    const wrapper = this.excalidrawWrapperRef.current;
+    const canvas = document.createElement('canvas');
+    canvas.className = 'excalidraw-squared-paper-canvas';
+    canvas.style.position = 'absolute';
+    canvas.style.top = '0';
+    canvas.style.left = '0';
+    canvas.style.width = '100%';
+    canvas.style.height = '100%';
+    canvas.style.pointerEvents = 'none'; // CRITICAL: Allow clicks through
+    canvas.style.zIndex = '10'; // Above Excalidraw canvas
+
+    wrapper.appendChild(canvas); // Add as last child (on top)
+    this.squaredPaperCanvas = canvas;
+
+    // Draw initial pattern after a short delay to ensure API is ready
+    setTimeout(() => {
+      this.updateSquaredPaperCanvas();
+    }, 100);
+  }
+
+  private removeSquaredPaperCanvas() {
+    if (this.squaredPaperCanvas) {
+      this.squaredPaperCanvas.remove();
+      this.squaredPaperCanvas = null;
+    }
+  }
+
+  private updateSquaredPaperCanvas() {
+    if (!this.squaredPaperCanvas || !this.excalidrawAPI) {
+      return;
+    }
+
+    const canvas = this.squaredPaperCanvas;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Set canvas size to match container (use devicePixelRatio for crisp rendering)
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    ctx.scale(dpr, dpr);
+
+    // Get current viewport transform from Excalidraw
+    const appState = (this.excalidrawAPI as ExcalidrawImperativeAPI).getAppState();
+    const zoom = appState.zoom.value;
+    const scrollX = appState.scrollX;
+    const scrollY = appState.scrollY;
+
+    // Clear canvas (transparent background - Excalidraw's white background will show through)
+    ctx.clearRect(0, 0, rect.width, rect.height);
+
+    // Apply Excalidraw's transform
+    ctx.save();
+    ctx.translate(rect.width / 2, rect.height / 2); // Center
+    ctx.scale(zoom, zoom);
+    ctx.translate(scrollX, scrollY);
+
+    // Draw grid
+    const gridSize = this.plugin.settings.squaredPaperSize;
+    const color = this.plugin.settings.squaredPaperColor;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1 / zoom; // Keep line width constant in screen space
+
+    // Calculate visible area in Excalidraw coordinates
+    const viewportWidth = rect.width / zoom;
+    const viewportHeight = rect.height / zoom;
+    const startX = Math.floor((-scrollX - viewportWidth / 2) / gridSize) * gridSize;
+    const endX = Math.ceil((-scrollX + viewportWidth / 2) / gridSize) * gridSize;
+    const startY = Math.floor((-scrollY - viewportHeight / 2) / gridSize) * gridSize;
+    const endY = Math.ceil((-scrollY + viewportHeight / 2) / gridSize) * gridSize;
+
+    // Draw vertical lines
+    ctx.beginPath();
+    for (let x = startX; x <= endX; x += gridSize) {
+      ctx.moveTo(x, startY);
+      ctx.lineTo(x, endY);
+    }
+    // Draw horizontal lines
+    for (let y = startY; y <= endY; y += gridSize) {
+      ctx.moveTo(startX, y);
+      ctx.lineTo(endX, y);
+    }
+    ctx.stroke();
+
+    ctx.restore();
   }
 
   public async toggleCompactMode() {
