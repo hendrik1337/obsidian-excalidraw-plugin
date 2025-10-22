@@ -5894,6 +5894,15 @@ export default class ExcalidrawView extends TextFileView implements HoverParent{
     }
 
     const wrapper = this.excalidrawWrapperRef.current;
+
+    // Find the Excalidraw container (the div with class 'excalidraw')
+    const excalidrawContainer = wrapper.querySelector('.excalidraw');
+    if (!excalidrawContainer) {
+      // If Excalidraw hasn't rendered yet, retry after a short delay
+      setTimeout(() => this.createSquaredPaperCanvas(), 100);
+      return;
+    }
+
     const canvas = document.createElement('canvas');
     canvas.className = 'excalidraw-squared-paper-canvas';
     canvas.style.position = 'absolute';
@@ -5902,9 +5911,10 @@ export default class ExcalidrawView extends TextFileView implements HoverParent{
     canvas.style.width = '100%';
     canvas.style.height = '100%';
     canvas.style.pointerEvents = 'none'; // CRITICAL: Allow clicks through
-    canvas.style.zIndex = '10'; // Above Excalidraw canvas
+    canvas.style.zIndex = '1'; // Above Excalidraw canvas, below UI
 
-    wrapper.appendChild(canvas); // Add as last child (on top)
+    // Insert right after the Excalidraw container
+    excalidrawContainer.parentNode.insertBefore(canvas, excalidrawContainer.nextSibling);
     this.squaredPaperCanvas = canvas;
 
     // Draw initial pattern after a short delay to ensure API is ready
