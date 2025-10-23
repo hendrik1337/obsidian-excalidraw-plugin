@@ -561,11 +561,10 @@ export class ExcalidrawSettingTab extends PluginSettingTab {
     if (requestReloadDrawings) {
       this.requestReloadDrawings = true;
     }
-    if (requestReloadDrawings) { // Only update if a reload is requested, as squared paper changes require a reload
-      getExcalidrawViews(this.app).forEach(excalidrawView =>
-        excalidrawView.updateSquaredPaperStyles()
-      )
-    }
+    // Always update squared paper styles when settings change
+    getExcalidrawViews(this.app).forEach(excalidrawView =>
+      excalidrawView.updateSquaredPaperStyles()
+    );
   }
 
   async hide() {

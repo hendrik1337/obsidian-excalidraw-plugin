@@ -4038,7 +4038,13 @@ export default class ExcalidrawView extends TextFileView implements HoverParent{
   private canvasColorChangeHook(st: AppState) {
     (process.env.NODE_ENV === 'development') && DEBUGGING && debug(this.canvasColorChangeHook, "ExcalidrawView.canvasColorChangeHook", st);
     const canvasColor = st.viewBackgroundColor === "transparent" ? "white" : st.viewBackgroundColor;
-    this.updateGridColor(canvasColor,st);
+
+    // Only update grid color if squared paper is NOT enabled
+    // When squared paper is enabled, it manages its own grid color
+    if (!this.plugin.settings.squaredPaperEnabled) {
+      this.updateGridColor(canvasColor, st);
+    }
+
     setDynamicStyle(this.plugin.ea,this,canvasColor,this.plugin.settings.dynamicStyling);
     if(this.plugin.ea.onCanvasColorChangeHook) {
       try {
@@ -5108,10 +5114,6 @@ export default class ExcalidrawView extends TextFileView implements HoverParent{
     window.setTimeout(() => {
       this.onAfterLoadScene(true);
       this.excalidrawContainer?.focus();
-      // Ensure squared paper is created for new/unsaved files
-      if (this.plugin.settings.squaredPaperEnabled) {
-        this.updateSquaredPaperStyles();
-      }
     });
   };
 
@@ -5859,23 +5861,40 @@ export default class ExcalidrawView extends TextFileView implements HoverParent{
       return;
     }
 
-    // Use Excalidraw's built-in grid system
-    api.updateScene({
-      appState: {
-        gridModeEnabled: this.plugin.settings.squaredPaperEnabled,
-        gridSize: this.plugin.settings.squaredPaperSize,
-        gridStep: 5, // Major grid lines every 5 cells (can be made configurable later)
-        gridColor: {
-          Bold: this.plugin.settings.squaredPaperColor, // Major grid lines
-          Regular: this.plugin.settings.squaredPaperColor, // Regular grid lines
+    if (this.plugin.settings.squaredPaperEnabled) {
+      // Use squared paper settings
+      api.updateScene({
+        appState: {
+          gridModeEnabled: true,
+          gridSize: this.plugin.settings.squaredPaperSize,
+          gridStep: 5, // Major grid lines every 5 cells (can be made configurable later)
+          gridColor: {
+            Bold: this.plugin.settings.squaredPaperColor, // Major grid lines
+            Regular: this.plugin.settings.squaredPaperColor, // Regular grid lines
+          },
+          gridDirection: {
+            horizontal: true,
+            vertical: true,
+          },
         },
-        gridDirection: {
-          horizontal: true,
-          vertical: true,
+        captureUpdate: CaptureUpdateAction.NEVER,
+      });
+    } else {
+      // Use the existing grid settings (for backward compatibility)
+      const st = api.getAppState();
+      const canvasColor = st.viewBackgroundColor === "transparent" ? "white" : st.viewBackgroundColor;
+      api.updateScene({
+        appState: {
+          gridModeEnabled: false,
+          gridColor: this.getGridColor(canvasColor, st),
+          gridDirection: this.plugin.settings.gridSettings.GRID_DIRECTION ?? {
+            horizontal: true,
+            vertical: true,
+          },
         },
-      },
-      captureUpdate: CaptureUpdateAction.NEVER,
-    });
+        captureUpdate: CaptureUpdateAction.NEVER,
+      });
+    }
   }
 
   public async toggleCompactMode() {
