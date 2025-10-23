@@ -884,20 +884,3 @@ textarea.excalidraw-wysiwyg, .excalidraw input {
 .excalidraw .undo-redo-buttons button {
   width: 3em;
 }
-
-.excalidraw-wrapper.excalidraw-squared-paper {
-  --squared-paper-color: #C0C0C0; /* Default color */
-  --squared-paper-size: 20px;    /* Default size */
-  position: relative;
-}
-
-/* Squared paper canvas styling - overlay on Excalidraw canvas but below UI */
-.excalidraw-squared-paper-canvas {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none !important; /* CRITICAL: Allow all clicks to pass through */
-  z-index: 1 !important; /* Above Excalidraw canvas, below UI elements */
-}
