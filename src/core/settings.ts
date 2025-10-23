@@ -205,6 +205,7 @@ export interface ExcalidrawSettings {
   squaredPaperEnabled: boolean;
   squaredPaperColor: string;
   squaredPaperSize: number;
+  squaredPaperPattern: "grid" | "lines-h" | "lines-v" | "dots" | "isometric";
   laserSettings: {
     DECAY_TIME: number,
     DECAY_LENGTH: number,
@@ -410,6 +411,7 @@ export const DEFAULT_SETTINGS: ExcalidrawSettings = {
   squaredPaperEnabled: false,
   squaredPaperColor: "#C0C0C0",
   squaredPaperSize: 20,
+  squaredPaperPattern: "grid",
   laserSettings: {
     DECAY_LENGTH: 50,
     DECAY_TIME: 1000,
@@ -1718,6 +1720,23 @@ export class ExcalidrawSettingTab extends PluginSettingTab {
             .setValue(this.plugin.settings.squaredPaperEnabled)
             .onChange(async (value) => {
               this.plugin.settings.squaredPaperEnabled = value;
+              this.applySettingsUpdate(true); // Request reload to apply changes
+            }),
+        );
+
+      new Setting(detailsEl)
+        .setName(t("SQUARED_PAPER_PATTERN_NAME"))
+        .setDesc(fragWithHTML(t("SQUARED_PAPER_PATTERN_DESC")))
+        .addDropdown((dropdown) =>
+          dropdown
+            .addOption("grid", t("SQUARED_PAPER_PATTERN_GRID"))
+            .addOption("lines-h", t("SQUARED_PAPER_PATTERN_LINES_H"))
+            .addOption("lines-v", t("SQUARED_PAPER_PATTERN_LINES_V"))
+            .addOption("dots", t("SQUARED_PAPER_PATTERN_DOTS"))
+            .addOption("isometric", t("SQUARED_PAPER_PATTERN_ISOMETRIC"))
+            .setValue(this.plugin.settings.squaredPaperPattern)
+            .onChange(async (value: "grid" | "lines-h" | "lines-v" | "dots" | "isometric") => {
+              this.plugin.settings.squaredPaperPattern = value;
               this.applySettingsUpdate(true); // Request reload to apply changes
             }),
         );

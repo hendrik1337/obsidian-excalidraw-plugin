@@ -5862,19 +5862,63 @@ export default class ExcalidrawView extends TextFileView implements HoverParent{
     }
 
     if (this.plugin.settings.squaredPaperEnabled) {
-      // Use squared paper settings
+      const pattern = this.plugin.settings.squaredPaperPattern;
+      const color = this.plugin.settings.squaredPaperColor;
+      const size = this.plugin.settings.squaredPaperSize;
+
+      // Determine grid direction based on pattern
+      let horizontal = true;
+      let vertical = true;
+      let gridSize = size;
+      let gridStep = 5;
+
+      switch (pattern) {
+        case "lines-h":
+          // Only horizontal lines
+          horizontal = true;
+          vertical = false;
+          break;
+        case "lines-v":
+          // Only vertical lines
+          horizontal = false;
+          vertical = true;
+          break;
+        case "dots":
+          // Dot grid - use both directions with step=1 to create intersections
+          horizontal = true;
+          vertical = true;
+          gridStep = 1; // No major/minor distinction for dots
+          break;
+        case "isometric":
+          // Isometric grid - use standard grid with 60-degree angle
+          // Note: Excalidraw's grid doesn't support angled lines natively,
+          // so we use a smaller grid size to approximate isometric
+          horizontal = true;
+          vertical = true;
+          gridSize = Math.round(size * 0.866); // sin(60°) ≈ 0.866
+          gridStep = 1;
+          break;
+        case "grid":
+        default:
+          // Standard square grid
+          horizontal = true;
+          vertical = true;
+          gridStep = 5;
+          break;
+      }
+
       api.updateScene({
         appState: {
           gridModeEnabled: true,
-          gridSize: this.plugin.settings.squaredPaperSize,
-          gridStep: 5, // Major grid lines every 5 cells (can be made configurable later)
+          gridSize: gridSize,
+          gridStep: gridStep,
           gridColor: {
-            Bold: this.plugin.settings.squaredPaperColor, // Major grid lines
-            Regular: this.plugin.settings.squaredPaperColor, // Regular grid lines
+            Bold: color, // Major grid lines (or all lines if gridStep=1)
+            Regular: color, // Regular grid lines
           },
           gridDirection: {
-            horizontal: true,
-            vertical: true,
+            horizontal: horizontal,
+            vertical: vertical,
           },
         },
         captureUpdate: CaptureUpdateAction.NEVER,

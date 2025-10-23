@@ -1,11 +1,17 @@
 # Squared Paper Grid - Feature Roadmap
 
 ## ✅ Essential Features (Implemented)
-1. **Grid Enable/Disable** - Toggle grid on/off
-2. **Grid Size** - Adjustable cell spacing (5-100px)
-3. **Grid Color** - Customizable color for grid lines
-4. **Real-time Pan/Zoom** - Grid moves with canvas transformations
-5. **Proper Z-ordering** - Grid renders behind all elements (shapes, images, text)
+1. **Grid Enable/Disable** - Toggle grid on/off ✓
+2. **Grid Size** - Adjustable cell spacing (5-100px) ✓
+3. **Grid Color** - Customizable color for grid lines ✓
+4. **Real-time Pan/Zoom** - Grid moves with canvas transformations ✓
+5. **Proper Z-ordering** - Grid renders behind all elements (shapes, images, text) ✓
+6. **Multiple Pattern Types** - Choose from 5 different grid patterns ✓
+   - **Grid (Squares)** - Standard square grid for general drawing
+   - **Horizontal Lines** - Ruled paper effect, great for handwriting/notes
+   - **Vertical Lines** - Columnar layout, useful for lists and tables
+   - **Dot Grid** - Minimalist dots at intersections, popular for bullet journaling
+   - **Isometric Grid** - 60° angle grid for technical/architectural drawings
 
 ## 📋 Nice-to-Have Features (Future)
 
@@ -23,11 +29,7 @@
 11. **Per-Document Settings** - Save grid settings with the drawing file (persist in .excalidraw file)
 
 ### Advanced Grid Types
-12. **Multiple Grid Types**:
-    - Square grid (current default)
-    - Isometric grid (for technical/architectural drawings)
-    - Dot grid (for bullet journaling aesthetic)
-    - Hex grid (for game maps and board layouts)
+12. **Hexagonal Grid** - For game maps, board layouts, and organic patterns
 
 ### Professional Features
 13. **Ruler Mode** - Show measurements/units along canvas edges
