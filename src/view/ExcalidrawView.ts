@@ -5413,9 +5413,144 @@ export default class ExcalidrawView extends TextFileView implements HoverParent{
         t("TRAY_SWITCH_TO_MD")
       ),
       React.createElement(MainMenu.Separator),
+      React.createElement(MainMenu.Group, { title: "Background Pattern" },
+        React.createElement(
+          MainMenu.Item,
+          {
+            "aria-label": "No Background",
+            onSelect: () => this.applyGridPattern("none"),
+          },
+          "None"
+        ),
+        React.createElement(
+          MainMenu.Item,
+          {
+            icon: ICONS.trayMode,
+            "aria-label": "Grid (Squares)",
+            onSelect: () => this.applyGridPattern("grid"),
+          },
+          "Grid"
+        ),
+        React.createElement(
+          MainMenu.Item,
+          {
+            icon: ICONS.trayMode,
+            "aria-label": "Horizontal Lines",
+            onSelect: () => this.applyGridPattern("lines-h"),
+          },
+          "Lines H"
+        ),
+        React.createElement(
+          MainMenu.Item,
+          {
+            icon: ICONS.trayMode,
+            "aria-label": "Vertical Lines",
+            onSelect: () => this.applyGridPattern("lines-v"),
+          },
+          "Lines V"
+        ),
+        React.createElement(
+          MainMenu.Item,
+          {
+            icon: ICONS.trayMode,
+            "aria-label": "Dot Grid",
+            onSelect: () => this.applyGridPattern("dots"),
+          },
+          "Dots"
+        ),
+        React.createElement(
+          MainMenu.Item,
+          {
+            icon: ICONS.trayMode,
+            "aria-label": "Isometric Grid",
+            onSelect: () => this.applyGridPattern("isometric"),
+          },
+          "Isometric"
+        ),
+      ),
+      React.createElement(MainMenu.Separator),
       React.createElement(MainMenu.DefaultItems.Help),
       React.createElement(MainMenu.DefaultItems.ClearCanvas),
     );
+  }
+
+  /**
+   * Applies a specific grid pattern to the current canvas.
+   * @param pattern The pattern type to apply, or "none" to disable grid
+   */
+  private applyGridPattern(pattern: "none" | "grid" | "lines-h" | "lines-v" | "dots" | "isometric") {
+    const api = this.excalidrawAPI as ExcalidrawImperativeAPI;
+    if (!api) {
+      return;
+    }
+
+    // If "none", simply disable the grid
+    if (pattern === "none") {
+      api.updateScene({
+        appState: {
+          gridModeEnabled: false,
+        },
+        captureUpdate: CaptureUpdateAction.IMMEDIATELY,
+      });
+      this.setDirty(101);
+      return;
+    }
+
+    // Use plugin settings for color and size
+    const color = this.plugin.settings.squaredPaperColor;
+    const size = this.plugin.settings.squaredPaperSize;
+
+    // Determine grid configuration based on pattern
+    let horizontal = true;
+    let vertical = true;
+    let gridSize = size;
+    let gridStep = 5;
+
+    switch (pattern) {
+      case "lines-h":
+        horizontal = true;
+        vertical = false;
+        break;
+      case "lines-v":
+        horizontal = false;
+        vertical = true;
+        break;
+      case "dots":
+        horizontal = true;
+        vertical = true;
+        gridStep = 1;
+        break;
+      case "isometric":
+        horizontal = true;
+        vertical = true;
+        gridSize = Math.round(size * 0.866);
+        gridStep = 1;
+        break;
+      case "grid":
+      default:
+        horizontal = true;
+        vertical = true;
+        gridStep = 5;
+        break;
+    }
+
+    api.updateScene({
+      appState: {
+        gridModeEnabled: true,
+        gridSize: gridSize,
+        gridStep: gridStep,
+        gridColor: {
+          Bold: color,
+          Regular: color,
+        },
+        gridDirection: {
+          horizontal: horizontal,
+          vertical: vertical,
+        },
+      },
+      captureUpdate: CaptureUpdateAction.IMMEDIATELY,
+    });
+    this.setDirty(102);
   }
 
   private renderEmbeddable (element: NonDeletedExcalidrawElement, appState: UIAppState) {
@@ -5851,7 +5986,8 @@ export default class ExcalidrawView extends TextFileView implements HoverParent{
 
   /**
    * Updates the squared paper grid using Excalidraw's built-in grid system.
-   * This properly renders the grid behind all elements and handles pan/zoom automatically.
+   * Only applies plugin settings as DEFAULTS for NEW canvases that have never been saved.
+   * Grid settings are per-canvas and managed through the canvas menu.
    */
   public updateSquaredPaperStyles() {
     (process.env.NODE_ENV === 'development') && DEBUGGING && debug(this.updateSquaredPaperStyles, "ExcalidrawView.updateSquaredPaperStyles");
@@ -5861,7 +5997,16 @@ export default class ExcalidrawView extends TextFileView implements HoverParent{
       return;
     }
 
-    if (this.plugin.settings.squaredPaperEnabled) {
+    const appState = api.getAppState();
+    const elements = api.getSceneElements();
+
+    // Only apply defaults if this is a brand new canvas that has never had grid settings configured.
+    // If gridDirection exists, it means the canvas already has saved grid settings (even if grid is disabled).
+    // We check gridDirection because it's only set when grid settings are explicitly configured.
+    const hasExistingGridSettings = appState.gridDirection !== undefined;
+    const isNewCanvas = elements.length === 0 && !hasExistingGridSettings;
+
+    if (isNewCanvas && this.plugin.settings.squaredPaperEnabled) {
       const pattern = this.plugin.settings.squaredPaperPattern;
       const color = this.plugin.settings.squaredPaperColor;
       const size = this.plugin.settings.squaredPaperSize;
@@ -5874,33 +6019,26 @@ export default class ExcalidrawView extends TextFileView implements HoverParent{
 
       switch (pattern) {
         case "lines-h":
-          // Only horizontal lines
           horizontal = true;
           vertical = false;
           break;
         case "lines-v":
-          // Only vertical lines
           horizontal = false;
           vertical = true;
           break;
         case "dots":
-          // Dot grid - use both directions with step=1 to create intersections
           horizontal = true;
           vertical = true;
-          gridStep = 1; // No major/minor distinction for dots
+          gridStep = 1;
           break;
         case "isometric":
-          // Isometric grid - use standard grid with 60-degree angle
-          // Note: Excalidraw's grid doesn't support angled lines natively,
-          // so we use a smaller grid size to approximate isometric
           horizontal = true;
           vertical = true;
-          gridSize = Math.round(size * 0.866); // sin(60°) ≈ 0.866
+          gridSize = Math.round(size * 0.866);
           gridStep = 1;
           break;
         case "grid":
         default:
-          // Standard square grid
           horizontal = true;
           vertical = true;
           gridStep = 5;
@@ -5913,8 +6051,8 @@ export default class ExcalidrawView extends TextFileView implements HoverParent{
           gridSize: gridSize,
           gridStep: gridStep,
           gridColor: {
-            Bold: color, // Major grid lines (or all lines if gridStep=1)
-            Regular: color, // Regular grid lines
+            Bold: color,
+            Regular: color,
           },
           gridDirection: {
             horizontal: horizontal,
@@ -5923,22 +6061,8 @@ export default class ExcalidrawView extends TextFileView implements HoverParent{
         },
         captureUpdate: CaptureUpdateAction.NEVER,
       });
-    } else {
-      // Use the existing grid settings (for backward compatibility)
-      const st = api.getAppState();
-      const canvasColor = st.viewBackgroundColor === "transparent" ? "white" : st.viewBackgroundColor;
-      api.updateScene({
-        appState: {
-          gridModeEnabled: false,
-          gridColor: this.getGridColor(canvasColor, st),
-          gridDirection: this.plugin.settings.gridSettings.GRID_DIRECTION ?? {
-            horizontal: true,
-            vertical: true,
-          },
-        },
-        captureUpdate: CaptureUpdateAction.NEVER,
-      });
     }
+    // Otherwise, respect the per-canvas settings (do nothing)
   }
 
   public async toggleCompactMode() {
